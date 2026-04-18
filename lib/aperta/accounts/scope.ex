@@ -18,6 +18,8 @@ defmodule Aperta.Accounts.Scope do
 
   alias Aperta.Accounts.User
 
+  @type t :: %__MODULE__{user: User.t() | nil}
+
   defstruct user: nil
 
   @doc """
