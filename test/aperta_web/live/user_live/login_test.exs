@@ -12,11 +12,10 @@ defmodule ApertaWeb.UserLive.LoginTest do
       assert html =~ "Log in with email"
     end
 
-    test "does not expose a registration link (v1 is single-user)", %{conn: conn} do
-      {:ok, _lv, html} = live(conn, ~p"/users/log-in")
+    test "links to the registration page for anonymous visitors", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
-      refute html =~ "Register"
-      refute html =~ "Sign up"
+      assert has_element?(lv, "a[href='#{~p"/users/register"}']", "Sign up")
     end
   end
 
@@ -62,7 +61,7 @@ defmodule ApertaWeb.UserLive.LoginTest do
 
       conn = submit_form(form, conn)
 
-      assert redirected_to(conn) == ~p"/"
+      assert redirected_to(conn) == ~p"/library"
     end
 
     test "redirects to login page with a flash error if credentials are invalid", %{

@@ -35,35 +35,50 @@ defmodule ApertaWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
-      <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
-        </a>
-      </div>
-      <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
-          <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
-          </li>
-          <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
-          </li>
-          <li>
-            <.theme_toggle />
-          </li>
-          <li>
-            <a href="https://hexdocs.pm/phoenix/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
-            </a>
-          </li>
-        </ul>
+    <header class="sticky top-0 z-20 border-b border-base-200/70 bg-base-100/80 backdrop-blur">
+      <div class="mx-auto flex h-14 w-full max-w-6xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+        <.link navigate={brand_path(@current_scope)} class="flex items-center gap-2">
+          <span class="text-lg font-semibold tracking-tight">Aperta</span>
+        </.link>
+
+        <div class="flex flex-1 items-center justify-end gap-2 sm:gap-3">
+          <.theme_toggle />
+
+          <%= if @current_scope do %>
+            <span class="hidden text-sm text-base-content/70 sm:inline">
+              {@current_scope.user.email}
+            </span>
+            <.link
+              navigate={~p"/users/settings"}
+              class="btn btn-ghost btn-sm gap-1"
+              aria-label="Settings"
+            >
+              <.icon name="hero-cog-6-tooth" class="size-4" />
+              <span class="hidden sm:inline">Settings</span>
+            </.link>
+            <.link
+              href={~p"/users/log-out"}
+              method="delete"
+              class="btn btn-ghost btn-sm gap-1"
+              aria-label="Log out"
+            >
+              <.icon name="hero-arrow-right-on-rectangle" class="size-4" />
+              <span class="hidden sm:inline">Log out</span>
+            </.link>
+          <% else %>
+            <.link navigate={~p"/users/log-in"} class="btn btn-ghost btn-sm">
+              Log in
+            </.link>
+            <.link navigate={~p"/users/register"} class="btn btn-primary btn-sm">
+              Sign up
+            </.link>
+          <% end %>
+        </div>
       </div>
     </header>
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
+    <main class="px-4 py-8 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-6xl space-y-6">
         {render_slot(@inner_block)}
       </div>
     </main>
@@ -71,6 +86,11 @@ defmodule ApertaWeb.Layouts do
     <.flash_group flash={@flash} />
     """
   end
+
+  # The brand link sends logged-in users to their library and everyone
+  # else back to the marketing home page.
+  defp brand_path(%{user: %Aperta.Accounts.User{}}), do: ~p"/library"
+  defp brand_path(_), do: ~p"/"
 
   @doc """
   Shows the flash group with standard titles and content.

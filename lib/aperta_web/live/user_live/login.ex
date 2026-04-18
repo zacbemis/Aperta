@@ -84,6 +84,13 @@ defmodule ApertaWeb.UserLive.Login do
             Log in only this time
           </.button>
         </.form>
+
+        <p :if={!@current_scope} class="text-center text-sm text-base-content/70">
+          Don't have an account yet?
+          <.link navigate={~p"/users/register"} class="link link-primary">
+            Sign up
+          </.link>
+        </p>
       </div>
     </Layouts.app>
     """

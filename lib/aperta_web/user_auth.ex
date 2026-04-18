@@ -193,6 +193,11 @@ defmodule ApertaWeb.UserAuth do
       on user_token.
       Redirects to login page if there's no logged user.
 
+    * `:redirect_if_authenticated` - For LiveViews that only make sense to
+      unauthenticated visitors (e.g. the registration page). Assigns the
+      current_scope and, if there is already a user, redirects to the
+      library.
+
   ## Examples
 
   Use the `on_mount` lifecycle macro in LiveViews to mount or authenticate
@@ -230,6 +235,16 @@ defmodule ApertaWeb.UserAuth do
     end
   end
 
+  def on_mount(:redirect_if_authenticated, _params, session, socket) do
+    socket = mount_current_scope(socket, session)
+
+    if socket.assigns.current_scope && socket.assigns.current_scope.user do
+      {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/library")}
+    else
+      {:cont, socket}
+    end
+  end
+
   def on_mount(:require_sudo_mode, _params, session, socket) do
     socket = mount_current_scope(socket, session)
 
@@ -262,7 +277,7 @@ defmodule ApertaWeb.UserAuth do
     ~p"/users/settings"
   end
 
-  def signed_in_path(_), do: ~p"/"
+  def signed_in_path(_), do: ~p"/library"
 
   @doc """
   Plug for routes that require the user to be authenticated.
