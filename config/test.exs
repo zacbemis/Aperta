@@ -39,3 +39,16 @@ config :phoenix_live_view,
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+# MinIO (S3-compatible) for tests — points at the same local MinIO as dev.
+# Storage-backed tests are tagged `:storage` so they can be skipped when the
+# local MinIO isn't running (see test/test_helper.exs).
+config :ex_aws, :s3,
+  scheme: "http://",
+  host: "localhost",
+  port: 9000,
+  region: "us-east-1"
+
+config :ex_aws,
+  access_key_id: "aperta",
+  secret_access_key: "aperta-dev-password"

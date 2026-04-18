@@ -35,3 +35,23 @@ aperta-*.tar
 npm-debug.log
 /assets/node_modules/
 
+# Local environment overrides (dotenv style).
+.env
+.env.*
+!.env.example
+
+# OS / editor junk.
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Editor / IDE workspace state.
+/.vscode/
+/.idea/
+/.zed/
+
+# Elixir Language Server cache.
+/.elixir_ls/
+/.lexical/
+

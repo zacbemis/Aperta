@@ -68,6 +68,34 @@ if config_env() == :prod do
     ],
     secret_key_base: secret_key_base
 
+  # Blob storage — configured from env so the same release can talk to real AWS
+  # S3, a self-hosted MinIO, or any other S3-compatible service.
+  s3_access_key_id =
+    System.get_env("APERTA_S3_ACCESS_KEY_ID") ||
+      raise "environment variable APERTA_S3_ACCESS_KEY_ID is missing"
+
+  s3_secret_access_key =
+    System.get_env("APERTA_S3_SECRET_ACCESS_KEY") ||
+      raise "environment variable APERTA_S3_SECRET_ACCESS_KEY is missing"
+
+  s3_bucket =
+    System.get_env("APERTA_S3_BUCKET") ||
+      raise "environment variable APERTA_S3_BUCKET is missing"
+
+  config :ex_aws,
+    access_key_id: s3_access_key_id,
+    secret_access_key: s3_secret_access_key
+
+  config :ex_aws, :s3,
+    scheme: System.get_env("APERTA_S3_SCHEME", "https://"),
+    host: System.get_env("APERTA_S3_HOST", "s3.amazonaws.com"),
+    port: String.to_integer(System.get_env("APERTA_S3_PORT", "443")),
+    region: System.get_env("APERTA_S3_REGION", "us-east-1")
+
+  config :aperta, Aperta.Storage,
+    backend: Aperta.Storage.S3,
+    bucket: s3_bucket
+
   # ## SSL Support
   #
   # To get SSL working, you will need to add the `https` key

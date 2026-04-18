@@ -60,6 +60,17 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Blob storage (S3-compatible) for PDFs and other documents.
+# Default bucket for dev/test; prod overrides in runtime.exs.
+config :aperta, Aperta.Storage,
+  backend: Aperta.Storage.S3,
+  bucket: "aperta-documents"
+
+# ExAws uses Jason for JSON and hackney for HTTP (its S3 client only —
+# application HTTP lives on Req).
+config :ex_aws,
+  json_codec: Jason
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

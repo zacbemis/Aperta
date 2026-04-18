@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aperta-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: aperta_dev
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - aperta-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: aperta-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${APERTA_MINIO_ROOT_USER:-aperta}
+      MINIO_ROOT_PASSWORD: ${APERTA_MINIO_ROOT_PASSWORD:-aperta-dev-password}
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - aperta-minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-setup:
+    image: minio/mc:latest
+    container_name: aperta-minio-setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      APERTA_MINIO_ROOT_USER: ${APERTA_MINIO_ROOT_USER:-aperta}
+      APERTA_MINIO_ROOT_PASSWORD: ${APERTA_MINIO_ROOT_PASSWORD:-aperta-dev-password}
+      APERTA_MINIO_BUCKET: ${APERTA_MINIO_BUCKET:-aperta-documents}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$APERTA_MINIO_ROOT_USER $$APERTA_MINIO_ROOT_PASSWORD &&
+      mc mb --ignore-existing local/$$APERTA_MINIO_BUCKET &&
+      echo 'Bucket' $$APERTA_MINIO_BUCKET 'ready.'
+      "
+    restart: "no"
+
+volumes:
+  aperta-postgres:
+  aperta-minio:
