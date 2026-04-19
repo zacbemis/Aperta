@@ -104,13 +104,15 @@ defmodule ApertaWeb.LibraryLive do
           <article
             :for={{dom_id, doc} <- @streams.documents}
             id={dom_id}
-            class="rounded-lg border border-base-300 bg-base-100 p-4 hover:border-primary transition"
+            class="rounded-lg border border-base-300 bg-base-100 hover:border-primary transition"
           >
-            <p class="font-medium truncate">{doc.title}</p>
-            <p :if={doc.author} class="text-sm opacity-75 truncate">{doc.author}</p>
-            <p class="text-xs opacity-60 mt-2 truncate">
-              {doc.filename}{page_count_suffix(doc)}
-            </p>
+            <.link navigate={~p"/library/#{doc.id}"} class="block p-4">
+              <p class="font-medium truncate">{doc.title}</p>
+              <p :if={doc.author} class="text-sm opacity-75 truncate">{doc.author}</p>
+              <p class="text-xs opacity-60 mt-2 truncate">
+                {doc.filename}{page_count_suffix(doc)}
+              </p>
+            </.link>
           </article>
         </div>
       </section>

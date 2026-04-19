@@ -49,6 +49,34 @@ defmodule Aperta.Storage.S3 do
     ExAws.S3.presigned_url(config, :get, Storage.bucket(), key, expires_in: expires_in)
   end
 
+  @impl Aperta.Storage
+  def stream(key, opts) do
+    # Route the stream at the presigned URL so we don't have to teach Req
+    # how to sign SigV4 requests. The signature only covers the host +
+    # querystring, so adding a Range request header is fine — S3/MinIO
+    # honours it and returns `206` with the requested byte window.
+    with {:ok, url} <- presigned_get_url(key, []) do
+      req_headers =
+        case Keyword.get(opts, :range) do
+          nil -> []
+          range when is_binary(range) -> [{"range", range}]
+        end
+
+      case Req.get(url,
+             headers: req_headers,
+             into: :self,
+             receive_timeout: 60_000,
+             decode_body: false
+           ) do
+        {:ok, %Req.Response{status: status, headers: headers, body: body}} ->
+          {:ok, %{status: status, headers: headers, body: body}}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
   defp do_put(body, key, opts) do
     content_type = Keyword.get(opts, :content_type, "application/octet-stream")
 
