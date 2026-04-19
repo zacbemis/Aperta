@@ -51,6 +51,20 @@ defmodule ApertaWeb.ReaderLiveTest do
       assert html =~ encoded
     end
 
+    test "wires an Escape-to-library keyboard shortcut", %{conn: conn, scope: scope} do
+      doc = document_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/library/#{doc.id}")
+
+      # The shortcut is pure client-side `JS.navigate/1`, so the best we
+      # can assert from a LiveView test is that the binding is present on
+      # the key-capture element.
+      assert has_element?(
+               lv,
+               ~s|#reader-keys[phx-window-keydown][phx-key="Escape"]|
+             )
+    end
+
     test "pages_loaded persists page_count and jumps the viewer when resuming mid-document",
          %{conn: conn, scope: scope} do
       {:ok, doc} =
@@ -141,6 +155,64 @@ defmodule ApertaWeb.ReaderLiveTest do
       send(lv.pid, {:page_updated, 77, own_origin})
 
       refute_push_event(lv, "sync_to", 100)
+    end
+  end
+
+  describe "cross-device sync" do
+    setup :register_and_log_in_user
+
+    # Two LiveView processes mounting the same document simulate the same
+    # user having the reader open on two devices. This exercises the full
+    # loop: page change on device A → `Library.update_current_page/3` →
+    # `Phoenix.PubSub.broadcast/3` → `handle_info/2` on device B → `sync_to`
+    # push to the other browser.
+    test "a page change on one device syncs the other without echoing to the sender",
+         %{conn: conn, scope: scope} do
+      doc = document_fixture(scope)
+
+      {:ok, device_a, _html_a} = live(conn, ~p"/library/#{doc.id}")
+      {:ok, device_b, _html_b} = live(conn, ~p"/library/#{doc.id}")
+
+      now = DateTime.utc_now()
+
+      render_hook(device_a, "page_changed", %{
+        "page" => 17,
+        "client_updated_at" => DateTime.to_iso8601(now)
+      })
+
+      assert_push_event(device_b, "sync_to", %{page: 17})
+      # The sender tags its broadcast with its own `origin_id` and
+      # `handle_info/2` skips echoes, so device A must never receive a
+      # sync for the move it just originated.
+      refute_push_event(device_a, "sync_to", 100)
+
+      assert Repo.reload!(doc).current_page == 17
+    end
+
+    test "a stale page change (older client_updated_at) is dropped and not broadcast",
+         %{conn: conn, scope: scope} do
+      doc = document_fixture(scope)
+      later = DateTime.utc_now()
+      earlier = DateTime.add(later, -60, :second)
+
+      {:ok, _winner} =
+        Library.update_current_page(scope, doc, %{page: 25, client_updated_at: later})
+
+      {:ok, device_a, _html_a} = live(conn, ~p"/library/#{doc.id}")
+      {:ok, device_b, _html_b} = live(conn, ~p"/library/#{doc.id}")
+
+      render_hook(device_a, "page_changed", %{
+        "page" => 3,
+        "client_updated_at" => DateTime.to_iso8601(earlier)
+      })
+
+      # Device A snaps back to the winning page...
+      assert_push_event(device_a, "sync_to", %{page: 25})
+      # ...but because the write lost the LWW race the server never
+      # broadcasts, so device B stays put.
+      refute_push_event(device_b, "sync_to", 100)
+
+      assert Repo.reload!(doc).current_page == 25
     end
   end
 end

@@ -82,7 +82,12 @@ defmodule ApertaWeb.LibraryLive do
         </div>
 
         <div class="mt-4 flex justify-end">
-          <.button type="submit" disabled={@uploads.pdf.entries == []} class="btn btn-primary">
+          <.button
+            type="submit"
+            disabled={@uploads.pdf.entries == []}
+            phx-disable-with="Uploading…"
+            class="btn btn-primary"
+          >
             Upload
           </.button>
         </div>
@@ -104,15 +109,28 @@ defmodule ApertaWeb.LibraryLive do
           <article
             :for={{dom_id, doc} <- @streams.documents}
             id={dom_id}
-            class="rounded-lg border border-base-300 bg-base-100 hover:border-primary transition"
+            class="relative rounded-lg border border-base-300 bg-base-100 hover:border-primary transition"
           >
-            <.link navigate={~p"/library/#{doc.id}"} class="block p-4">
+            <.link navigate={~p"/library/#{doc.id}"} class="block p-4 pr-10">
               <p class="font-medium truncate">{doc.title}</p>
               <p :if={doc.author} class="text-sm opacity-75 truncate">{doc.author}</p>
               <p class="text-xs opacity-60 mt-2 truncate">
                 {doc.filename}{page_count_suffix(doc)}
               </p>
             </.link>
+            <button
+              type="button"
+              phx-click="delete"
+              phx-value-id={doc.id}
+              data-confirm={"Delete \"#{doc.title}\"? This can't be undone."}
+              aria-label={"Delete #{doc.title}"}
+              class={[
+                "absolute top-2 right-2 rounded-md p-1.5 opacity-60",
+                "hover:bg-base-200 hover:text-error hover:opacity-100 transition"
+              ]}
+            >
+              <.icon name="hero-trash" class="size-4" />
+            </button>
           </article>
         </div>
       </section>
@@ -125,6 +143,29 @@ defmodule ApertaWeb.LibraryLive do
 
   def handle_event("cancel", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :pdf, ref)}
+  end
+
+  def handle_event("delete", %{"id" => id}, socket) do
+    scope = socket.assigns.current_scope
+    document = Library.get_document!(scope, id)
+
+    # Delete the MinIO object first so a DB failure doesn't orphan bytes.
+    # Any storage-level error is logged but non-fatal — worst case we leak
+    # an object that a reconciliation sweep can collect later.
+    _ = Storage.delete(document.storage_key)
+
+    case Library.delete_document(scope, document) do
+      {:ok, deleted} ->
+        socket =
+          socket
+          |> stream_delete(:documents, deleted)
+          |> put_flash(:info, ~s|Deleted "#{deleted.title}".|)
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Couldn't delete that document.")}
+    end
   end
 
   def handle_event("save", _params, socket) do

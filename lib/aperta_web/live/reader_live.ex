@@ -50,6 +50,19 @@ defmodule ApertaWeb.ReaderLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
+      <%!--
+        `Esc` on the parent document navigates back to the library. When the
+        iframe has focus PDF.js absorbs `Esc` first (find bar, etc.), so we
+        only capture it when the user is interacting with our chrome — no
+        roundtrip to the server, just a client-side navigate.
+      --%>
+      <div
+        id="reader-keys"
+        phx-window-keydown={JS.navigate(~p"/library")}
+        phx-key="Escape"
+      >
+      </div>
+
       <div class="flex items-center gap-3">
         <.link navigate={~p"/library"} class="btn btn-ghost btn-sm gap-1">
           <.icon name="hero-arrow-left" class="size-4" /> Library

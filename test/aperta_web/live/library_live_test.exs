@@ -49,6 +49,34 @@ defmodule ApertaWeb.LibraryLiveTest do
       assert has_element?(lv, "#upload-form")
       assert has_element?(lv, "form#upload-form label[phx-drop-target]")
     end
+
+    test "each document row exposes a confirm-guarded delete button",
+         %{conn: conn, scope: scope} do
+      doc = document_fixture(scope, title: "Dune")
+
+      {:ok, lv, _html} = live(conn, ~p"/library")
+
+      # The delete button carries `data-confirm` so accidental taps never
+      # go through without a browser confirm dialog.
+      selector =
+        ~s|#documents-#{doc.id} button[phx-click="delete"][data-confirm*="Dune"]|
+
+      assert has_element?(lv, selector)
+    end
+
+    test "delete removes the row from the stream and the DB", %{conn: conn, scope: scope} do
+      doc = document_fixture(scope, title: "To Delete")
+
+      {:ok, lv, _html} = live(conn, ~p"/library")
+
+      lv
+      |> element(~s|#documents-#{doc.id} button[phx-click="delete"]|)
+      |> render_click()
+
+      refute has_element?(lv, "#documents-#{doc.id}")
+      assert has_element?(lv, "#documents-empty")
+      assert Aperta.Repo.get(Aperta.Documents.Document, doc.id) == nil
+    end
   end
 
   describe "uploading a PDF" do
@@ -85,6 +113,29 @@ defmodule ApertaWeb.LibraryLiveTest do
       on_exit(fn -> Storage.delete(doc.storage_key) end)
       assert {:ok, blob} = Storage.get(doc.storage_key)
       assert blob == contents
+    end
+
+    test "delete removes the MinIO object alongside the DB row",
+         %{conn: conn, scope: scope} do
+      contents = "%PDF-1.4\nstub\n%%EOF\n"
+      key = "documents/#{scope.user.id}/#{Ecto.UUID.generate()}.pdf"
+      :ok = Storage.put(key, contents, content_type: "application/pdf")
+
+      doc =
+        document_fixture(scope,
+          filename: "stub.pdf",
+          content_type: "application/pdf",
+          byte_size: byte_size(contents),
+          storage_key: key
+        )
+
+      {:ok, lv, _html} = live(conn, ~p"/library")
+
+      lv
+      |> element(~s|#documents-#{doc.id} button[phx-click="delete"]|)
+      |> render_click()
+
+      assert {:error, _} = Storage.get(key)
     end
   end
 end
